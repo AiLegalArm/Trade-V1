@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { User, Mail, Camera, Save, AlertCircle, Shield, Smartphone, Key, Lock, Globe } from 'lucide-react';
+import { User, Mail, Camera, Save, AlertCircle, Shield, Smartphone, Key, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useTranslation } from 'react-i18next';
 
 export const ProfileSettings: React.FC = () => {
-  const { t, i18n } = useTranslation('common');
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -181,29 +179,6 @@ export const ProfileSettings: React.FC = () => {
                   </div>
                 </div>
                 <button className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition-colors">Configure</button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-                    <Globe size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">Language Preference</p>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">English / German</p>
-                  </div>
-                </div>
-                <select 
-                   value={i18n.language}
-                   onChange={(e) => {
-                     i18n.changeLanguage(e.target.value);
-                     localStorage.setItem('i18nextLng', e.target.value);
-                   }}
-                   className="px-3 py-1.5 bg-black/50 border border-white/10 rounded-lg text-sm font-bold text-white outline-none"
-                >
-                   <option value="en">English</option>
-                   <option value="de">German</option>
-                </select>
               </div>
             </div>
           </div>

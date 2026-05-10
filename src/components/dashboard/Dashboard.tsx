@@ -35,7 +35,7 @@ export const Dashboard = () => {
 };
 
 const DashboardContent = () => {
-  const { currentPair, currentPrice, priceChangePercent24h, timeframe, setTimeframe } = useTradingContext();
+  const { currentPair, currentPrice, priceChangePercent24h } = useTradingContext();
   const isPositive = (priceChangePercent24h || 0) >= 0;
 
   return (
@@ -121,10 +121,7 @@ const DashboardContent = () => {
                  <div className="flex items-center gap-2">
                     <div className="flex p-1 bg-white/5 rounded-xl border border-white/5">
                        {['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'].map(tf => (
-                         <button 
-                           key={tf} 
-                           onClick={() => setTimeframe(tf)}
-                           className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all ${tf === timeframe ? 'bg-gradient-to-r from-accent-primary to-yellow-600 text-black shadow-neon-gold' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>
+                         <button key={tf} className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all ${tf === '1h' ? 'bg-gradient-to-r from-accent-primary to-yellow-600 text-black shadow-neon-gold' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>
                            {tf}
                          </button>
                        ))}

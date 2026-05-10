@@ -163,7 +163,7 @@ export const AdvancedOrderPanel: React.FC = () => {
            <div className="flex justify-between items-end mb-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Order Size</label>
            </div>
-           <div className="relative group mb-2">
+           <div className="relative group">
               <input 
                  type="text" 
                  value={amount}
@@ -171,19 +171,6 @@ export const AdvancedOrderPanel: React.FC = () => {
                  className="w-full p-3 bg-[#111] border border-white/10 rounded-xl text-sm font-mono font-bold text-white focus:outline-none focus:border-accent-primary/50 transition-all pr-12" 
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 group-focus-within:text-accent-primary transition-colors">Amount</span>
-           </div>
-           
-           {/* Quick Amount Buttons */}
-           <div className="flex gap-2">
-              {['25%', '50%', '75%', '100%'].map(pct => (
-                 <button 
-                   key={pct}
-                   onClick={() => setAmount((parseFloat(pct) / 100 * 10).toFixed(2))} // Mocking 10 as available balance for now
-                   className="flex-1 py-1 bg-[#111] hover:bg-white/10 border border-white/5 rounded text-[10px] font-bold text-slate-400 hover:text-white transition-colors"
-                 >
-                   {pct}
-                 </button>
-              ))}
            </div>
         </div>
 

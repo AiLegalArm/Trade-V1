@@ -12,7 +12,6 @@ export interface TradingState {
   stopLoss: string;
   marginType: 'Cross' | 'Isolated';
   orderType: 'Market' | 'Limit' | 'Stop';
-  timeframe: string;
 }
 
 export interface TradingActions {
@@ -23,7 +22,6 @@ export interface TradingActions {
   setStopLoss: (sl: string) => void;
   setMarginType: (type: 'Cross' | 'Isolated') => void;
   setOrderType: (type: 'Market' | 'Limit' | 'Stop') => void;
-  setTimeframe: (timeframe: string) => void;
 }
 
 const defaultState: Omit<TradingState, 'currentPrice' | 'priceChange24h' | 'priceChangePercent24h'> = {
@@ -34,7 +32,6 @@ const defaultState: Omit<TradingState, 'currentPrice' | 'priceChange24h' | 'pric
   stopLoss: '',
   marginType: 'Cross',
   orderType: 'Market',
-  timeframe: '1m',
 };
 
 const TradingContext = createContext<(TradingState & TradingActions) | null>(null);
@@ -53,7 +50,6 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
     setStopLoss: (sl) => setState(s => ({ ...s, stopLoss: sl })),
     setMarginType: (type) => setState(s => ({ ...s, marginType: type })),
     setOrderType: (type) => setState(s => ({ ...s, orderType: type })),
-    setTimeframe: (timeframe) => setState(s => ({ ...s, timeframe })),
   };
 
   return (

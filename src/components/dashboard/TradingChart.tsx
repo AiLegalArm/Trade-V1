@@ -6,13 +6,10 @@ import { useTradingStore } from '../../stores/tradingStore';
 
 export const TradingChart: React.FC = () => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const { currentPair, timeframe } = useTradingContext();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { currentPair } = useTradingContext();
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
-    
-    setIsLoading(true);
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -100,7 +97,6 @@ export const TradingChart: React.FC = () => {
        candlestickSeries.setData(cData as any);
        volumeSeries.setData(vData as any);
        emaSeries.setData(eData as any);
-       setIsLoading(false);
 
        if (cData.length > 0) {
            lastCandleTime = cData[cData.length - 1].time;
@@ -132,14 +128,7 @@ export const TradingChart: React.FC = () => {
        const fetchHistoricalData = async () => {
          try {
            const symbol = currentPair.toUpperCase();
-           // Map our timeframe to Binance interval
-           const intervalMap: Record<string, string> = {
-             '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
-             '1h': '1h', '4h': '4h', '1d': '1d', '1w': '1w'
-           };
-           const binanceInterval = intervalMap[timeframe.toLowerCase()] || '1m';
-           
-           const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${binanceInterval}&limit=500`);
+           const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1m&limit=500`);
            const data = await res.json();
            
            const cData = [];
@@ -170,10 +159,9 @@ export const TradingChart: React.FC = () => {
            candlestickSeries.setData(cData as any);
            volumeSeries.setData(vData as any);
            emaSeries.setData(eData as any);
-           setIsLoading(false);
            
            const lowerSymbol = symbol.toLowerCase();
-           ws = new WebSocket(`wss://stream.binance.com:9443/ws/${lowerSymbol}@kline_${binanceInterval}`);
+           ws = new WebSocket(`wss://stream.binance.com:9443/ws/${lowerSymbol}@kline_1m`);
            
            ws.onmessage = (event) => {
              const msg = JSON.parse(event.data);
@@ -210,15 +198,10 @@ export const TradingChart: React.FC = () => {
       if (unsub) unsub();
       chart.remove();
     };
-  }, [currentPair, timeframe]);
+  }, [currentPair]);
 
   return (
     <div className="relative w-full h-full flex bg-[#0a0a0a]">
-      {isLoading && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]/50 backdrop-blur-sm">
-          <div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      )}
       {/* Left Drawing Tools Sidebar */}
       <div className="w-12 h-full border-r border-white/5 flex flex-col items-center py-4 gap-4 z-10 bg-surface-bg/50">
         {[MousePointer2, Crosshair, Pencil, Move, Crop, Type, Plus].map((Icon, idx) => (
