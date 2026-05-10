@@ -66,10 +66,12 @@ const SidebarItem = ({ icon: Icon, label, active, alert, to, onClick }: SidebarI
 };
 
 export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const currentPath = window.location.pathname;
+  const isAdmin = user?.user_metadata?.role === 'admin' || localStorage.getItem('role') === 'admin';
+  const [showNotifs, setShowNotifs] = React.useState(false);
 
   const handleLogout = async () => {
     await signOut();
@@ -109,27 +111,65 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
 
       <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar pr-2">
         <SidebarItem icon={LayoutDashboard} label={t('dashboard')} to="/dashboard" active={currentPath === '/dashboard'} onClick={onClose} />
-        <SidebarItem icon={BarChart3} label={t('markets')} onClick={onClose} />
-        <SidebarItem icon={Repeat} label={t('trade')} onClick={onClose} />
+        <SidebarItem icon={BarChart3} label={t('markets')} to="/markets" active={currentPath === '/markets'} onClick={onClose} />
+        <SidebarItem icon={Repeat} label={t('trade')} to="/trade" active={currentPath === '/trade'} onClick={onClose} />
         <SidebarItem icon={Briefcase} label={t('portfolio')} to="/portfolio" active={currentPath === '/portfolio'} onClick={onClose} />
         <SidebarItem icon={Wallet} label={t('wallet')} to="/portfolio" active={currentPath === '/portfolio'} onClick={onClose} />
-        <SidebarItem icon={History} label={t('transactions')} onClick={onClose} />
+        <SidebarItem icon={History} label={t('transactions')} to="/transactions" active={currentPath === '/transactions'} onClick={onClose} />
         
         <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Growth</div>
         <SidebarItem icon={Trophy} label={t('rewards')} to="/gamification" active={currentPath === '/gamification'} onClick={onClose} />
         <SidebarItem icon={GraduationCap} label="Academy" to="/academy" active={currentPath === '/academy'} onClick={onClose} />
         <SidebarItem icon={Users} label={t('leaderboard')} to="/gamification" active={currentPath === '/gamification'} onClick={onClose} />
-        <SidebarItem icon={Users2} label="Referrals" onClick={onClose} />
-        <SidebarItem icon={Bell} label="Notifications" alert={12} onClick={onClose} />
+        <SidebarItem icon={Users2} label={t('referrals')} to="/referrals" active={currentPath === '/referrals'} onClick={onClose} />
+        <div className="relative">
+          <SidebarItem 
+            icon={Bell} 
+            label={t('notifications')} 
+            alert={12} 
+            active={currentPath === '/notifications'} 
+            onClick={() => setShowNotifs(!showNotifs)} 
+          />
+          {showNotifs && (
+            <div className="absolute left-full top-0 ml-2 w-72 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+               <div className="p-3 border-b border-white/10 flex justify-between items-center bg-surface-bg">
+                  <span className="font-bold text-white text-sm">Notifications</span>
+                  <span className="text-xs text-accent-primary bg-accent-primary/10 px-2 py-0.5 rounded-full">12 Unread</span>
+               </div>
+               <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                  <div className="p-2 rounded hover:bg-white/5 cursor-pointer">
+                     <p className="text-xs font-bold text-white">Deposit Successful</p>
+                     <p className="text-[10px] text-slate-400">Your deposit of 5,000 USDT has been credited.</p>
+                  </div>
+                  <div className="p-2 rounded hover:bg-white/5 cursor-pointer">
+                     <p className="text-xs font-bold text-white">Price Alert</p>
+                     <p className="text-[10px] text-slate-400">BTC has dropped below $65,000.</p>
+                  </div>
+               </div>
+               <div className="p-2 border-t border-white/10 bg-surface-bg">
+                  <button 
+                     onClick={() => { setShowNotifs(false); navigate('/notifications'); if(onClose) onClose(); }} 
+                     className="w-full py-1.5 text-xs font-bold text-center text-slate-300 hover:text-white bg-white/5 rounded transition-colors"
+                  >
+                     View All
+                  </button>
+               </div>
+            </div>
+          )}
+        </div>
 
         <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account</div>
-        <SidebarItem icon={ShieldCheck} label="KYC Verification" onClick={onClose} />
-        <SidebarItem icon={UserCircle} label="Profile" to="/settings" active={currentPath === '/settings'} onClick={onClose} />
-        <SidebarItem icon={Settings} label={t('settings')} onClick={onClose} />
-        <SidebarItem icon={LifeBuoy} label={t('help')} onClick={onClose} />
+        <SidebarItem icon={ShieldCheck} label={t('kyc')} to="/kyc" active={currentPath === '/kyc'} onClick={onClose} />
+        <SidebarItem icon={UserCircle} label={t('profile')} to="/settings" active={currentPath === '/settings'} onClick={onClose} />
+        <SidebarItem icon={Settings} label={t('settings')} to="/settings" active={currentPath === '/settings'} onClick={onClose} />
+        <SidebarItem icon={LifeBuoy} label={t('help')} to="/support" active={currentPath === '/support'} onClick={onClose} />
 
-        <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest">System</div>
-        <SidebarItem icon={Terminal} label="Command Center" to="/admin" active={currentPath === '/admin'} onClick={onClose} />
+        {isAdmin && (
+          <>
+            <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest">System</div>
+            <SidebarItem icon={Terminal} label="Command Center" to="/admin" active={currentPath.startsWith('/admin')} onClick={onClose} />
+          </>
+        )}
         
         <div className="pt-6">
           <ProTraderCard />
@@ -139,9 +179,16 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
 
       <div className="mt-auto pt-4 border-t border-border-glass">
         <div className="flex items-center justify-between px-2 mb-6">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all">
+          <div 
+            onClick={() => {
+              const newLang = i18n.language === 'en' ? 'de' : 'en';
+              i18n.changeLanguage(newLang);
+              localStorage.setItem('i18nextLng', newLang);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all"
+          >
              <Globe size={14} className="text-slate-400" />
-             <span className="text-[10px] font-bold text-slate-300">EN</span>
+             <span className="text-[10px] font-bold text-slate-300 uppercase">{i18n.language}</span>
              <ChevronRight size={10} className="rotate-90 text-slate-500" />
           </div>
           <div className="p-2 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all">

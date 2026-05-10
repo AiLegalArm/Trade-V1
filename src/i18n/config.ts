@@ -24,6 +24,42 @@ i18n
           leaderboard: 'Leaderboard',
           settings: 'Settings',
           help: 'Help & Support',
+          referrals: 'Referrals',
+          notifications: 'Notifications',
+          kyc: 'KYC Verification',
+          profile: 'Profile',
+          buy: 'Buy',
+          sell: 'Sell',
+          deposit: 'Deposit',
+          withdraw: 'Withdraw',
+          submit: 'Submit',
+          cancel: 'Cancel',
+          search: 'Search'
+        }
+      },
+      de: {
+        common: {
+          dashboard: 'Dashboard',
+          markets: 'Märkte',
+          trade: 'Handel',
+          portfolio: 'Portfolio',
+          wallet: 'Brieftasche',
+          transactions: 'Transaktionen',
+          rewards: 'Belohnungen',
+          leaderboard: 'Bestenliste',
+          settings: 'Einstellungen',
+          help: 'Hilfe & Support',
+          referrals: 'Empfehlungen',
+          notifications: 'Benachrichtigungen',
+          kyc: 'KYC-Verifizierung',
+          profile: 'Profil',
+          buy: 'Kaufen',
+          sell: 'Verkaufen',
+          deposit: 'Einzahlung',
+          withdraw: 'Auszahlung',
+          submit: 'Absenden',
+          cancel: 'Abbrechen',
+          search: 'Suche'
         }
       }
     }
