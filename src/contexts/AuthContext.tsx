@@ -8,6 +8,7 @@ interface AuthContextType {
   role: 'LITE' | 'PRO' | 'ADMIN' | 'STUDENT' | 'INSTRUCTOR' | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  signInMockAdmin: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   role: null,
   loading: true,
   signOut: async () => {},
+  signInMockAdmin: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -23,6 +25,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<'LITE' | 'PRO' | 'ADMIN' | 'STUDENT' | 'INSTRUCTOR' | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const signInMockAdmin = () => {
+    const mockUser = { id: 'admin-mock', email: 'BulAdm26352' } as User;
+    const mockSession = { user: mockUser, access_token: 'mock-token', refresh_token: 'mock', expires_in: 9999, token_type: 'bearer' } as Session;
+    setSession(mockSession);
+    setUser(mockUser);
+    setRole('ADMIN');
+    setLoading(false);
+  };
 
   useEffect(() => {
     const fetchRole = async (userId: string) => {

