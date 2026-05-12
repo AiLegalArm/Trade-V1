@@ -46,8 +46,10 @@ interface TradingState {
   orders: Order[];
   prices: Record<string, number>;
   priceChanges: Record<string, number>;
+  priceOverrides: Record<string, number>;
   
   // Actions
+  setPriceOverride: (symbol: string, price: number | null) => void;
   updatePrice: (symbol: string, price: number, change24h: number) => void;
   openPosition: (pos: Omit<Position, 'id' | 'unrealizedPnL' | 'status'>) => void;
   closePosition: (id: string, closePrice: number) => void;
@@ -69,16 +71,31 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   orders: [],
   prices: {},
   priceChanges: {},
+  priceOverrides: {},
+
+  setPriceOverride: (symbol, price) => {
+    set((state) => {
+      const overrides = { ...state.priceOverrides };
+      if (price === null) {
+        delete overrides[symbol];
+      } else {
+        overrides[symbol] = price;
+      }
+      return { priceOverrides: overrides };
+    });
+  },
 
   updatePrice: (symbol, price, change) => {
     set((state) => {
-      const newPrices = { ...state.prices, [symbol]: price };
+      const actualPrice = state.priceOverrides[symbol] !== undefined ? state.priceOverrides[symbol] : price;
+      const newPrices = { ...state.prices, [symbol]: actualPrice };
       const newChanges = { ...state.priceChanges, [symbol]: change };
       
       return { prices: newPrices, priceChanges: newChanges };
     });
     // Triggers side effects like PnL update or liqudation checks
-    get().updatePositionPnL(symbol, price);
+    const finalPrice = get().prices[symbol];
+    get().updatePositionPnL(symbol, finalPrice);
     get().checkOrders();
   },
 

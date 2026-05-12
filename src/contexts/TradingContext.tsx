@@ -3,6 +3,7 @@ import { useTradingStore } from '../stores/tradingStore';
 
 export interface TradingState {
   currentPair: string; // e.g., 'BTCUSDT'
+  currentTimeframe: string; // e.g., '1m', '1h', etc.
   currentPrice: number | null;
   priceChange24h: number | null;
   priceChangePercent24h: number | null;
@@ -16,6 +17,7 @@ export interface TradingState {
 
 export interface TradingActions {
   setCurrentPair: (pair: string) => void;
+  setCurrentTimeframe: (tf: string) => void;
   setOrderSize: (size: string) => void;
   setLeverage: (leverage: number) => void;
   setTakeProfit: (tp: string) => void;
@@ -26,6 +28,7 @@ export interface TradingActions {
 
 const defaultState: Omit<TradingState, 'currentPrice' | 'priceChange24h' | 'priceChangePercent24h'> = {
   currentPair: 'BTCUSDT',
+  currentTimeframe: '1m',
   orderSize: '0.1',
   leverage: 20,
   takeProfit: '',
@@ -44,6 +47,7 @@ export const TradingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const actions: TradingActions = {
     setCurrentPair: (pair) => setState(s => ({ ...s, currentPair: pair })),
+    setCurrentTimeframe: (tf) => setState(s => ({ ...s, currentTimeframe: tf })),
     setOrderSize: (size) => setState(s => ({ ...s, orderSize: size })),
     setLeverage: (leverage) => setState(s => ({ ...s, leverage })),
     setTakeProfit: (tp) => setState(s => ({ ...s, takeProfit: tp })),

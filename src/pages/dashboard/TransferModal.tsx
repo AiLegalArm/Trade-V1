@@ -1,19 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ShieldCheck, Download, Upload, ArrowRight, Bitcoin, CheckCircle2 } from 'lucide-react';
+import { crmService } from '../../services/crmService';
+import { supabase } from '../../lib/supabase';
+import { useTradingStore } from '../../stores/tradingStore';
+import { useTransactionStore } from '../../stores/transactionStore';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export const TransferModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   type: 'deposit' | 'withdraw';
 }> = ({ isOpen, onClose, type }) => {
+  const { t } = useTranslation('common');
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { wallet } = useTradingStore();
+  const { addRequest } = useTransactionStore();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
   
   const isDeposit = type === 'deposit';
 
-  const handleAction = () => {
+  const handleAction = async () => {
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount <= 0) {
+      toast.error('Invalid amount');
+      return;
+    }
+    if (!isDeposit && numAmount > wallet.balance) {
+      toast.error('Insufficient balance');
+      return;
+    }
+
+    setLoading(true);
+    
+    // Create local request
+    addRequest({
+      userId: user?.id || 'unknown',
+      userEmail: user?.email || 'unknown',
+      userName: user?.user_metadata?.name || 'User',
+      type: isDeposit ? 'Deposit' : 'Withdrawal',
+      amount: numAmount,
+      currency: 'USDT',
+    });
+
+    if (user) {
+      try {
+        await crmService.transaction({
+          external_trader_id: user.id,
+          external_tx_id: crypto.randomUUID(),
+          type: isDeposit ? 'deposit' : 'withdrawal',
+          amount: numAmount,
+          currency: 'USD',
+          status: 'pending',
+          processed_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    setLoading(false);
     setStep(2);
+    toast.success(t('requestProcessing', { defaultValue: 'Your request is being processed.' }));
+
     setTimeout(() => {
       setStep(1);
       setAmount('');
@@ -48,7 +104,7 @@ export const TransferModal: React.FC<{
                       {isDeposit ? <Download size={20} /> : <Upload size={20} />}
                     </div>
                     <h3 className="text-lg font-bold text-white tracking-wide">
-                      {isDeposit ? 'Simulated Deposit' : 'Simulated Withdraw'}
+                      {isDeposit ? 'Deposit' : 'Withdrawal'}
                     </h3>
                   </div>
                   <button onClick={onClose} className="p-2 text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-white/5">
@@ -58,13 +114,13 @@ export const TransferModal: React.FC<{
 
                 <div className="space-y-6">
                   <div>
-                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block mb-2">Select Asset</label>
+                    <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block mb-2">Select Currency</label>
                     <div className="p-3 bg-[#111] border border-white/10 rounded-xl flex items-center justify-between cursor-pointer hover:border-white/20 transition-all">
                       <div className="flex items-center gap-3">
-                        <Bitcoin size={20} className="text-orange-500" />
+                        <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold text-xs">$</div>
                         <div>
-                          <p className="text-sm font-bold text-white">USDT</p>
-                          <p className="text-[10px] text-slate-500">Tether (ERC20)</p>
+                          <p className="text-sm font-bold text-white">USD</p>
+                          <p className="text-[10px] text-slate-500">US Dollar</p>
                         </div>
                       </div>
                       <ArrowRight size={16} className="text-slate-500" />
@@ -75,9 +131,9 @@ export const TransferModal: React.FC<{
                     <div className="flex justify-between items-end mb-2">
                        <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold block">Amount</label>
                        {isDeposit ? (
-                         <span className="text-[10px] font-bold text-slate-500">Add virtual funds</span>
+                         <span className="text-[10px] font-bold text-slate-500">Add funds</span>
                        ) : (
-                         <span className="text-[10px] font-bold text-slate-500">Available: <span className="text-white">1,633.50 USDT</span></span>
+                         <span className="text-[10px] font-bold text-slate-500">Available: <span className="text-white">{wallet.balance.toFixed(2)} USD</span></span>
                        )}
                     </div>
                     <div className="relative group">
@@ -89,27 +145,20 @@ export const TransferModal: React.FC<{
                          className="w-full p-4 bg-[#111] border border-white/10 rounded-xl text-lg font-mono font-bold text-white focus:outline-none focus:border-accent-primary/50 transition-all pl-12"
                        />
                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-slate-500 font-bold">$</span>
-                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 group-focus-within:text-accent-primary transition-colors">USDT</span>
+                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 group-focus-within:text-accent-primary transition-colors">USD</span>
                     </div>
-                  </div>
-
-                  <div className="p-4 bg-accent-primary/5 border border-accent-primary/10 rounded-xl flex items-start gap-3">
-                    <ShieldCheck size={16} className="text-accent-primary shrink-0 mt-0.5" />
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      This is a <strong>simulated transaction</strong> for training purposes. No real funds will be transferred or required.
-                    </p>
                   </div>
 
                   <button 
                     onClick={handleAction}
-                    disabled={!amount || Number(amount) <= 0}
+                    disabled={!amount || Number(amount) <= 0 || loading}
                     className={`w-full py-4 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 ${
                       isDeposit 
                       ? 'bg-accent-secondary text-black shadow-neon-emerald hover:brightness-110' 
                       : 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)] hover:brightness-110'
                     }`}
                   >
-                    {isDeposit ? 'Confirm Sim. Deposit' : 'Confirm Sim. Withdraw'}
+                    {loading ? 'Processing...' : (isDeposit ? 'Submit Deposit' : 'Submit Withdrawal')}
                   </button>
                 </div>
               </div>
@@ -125,7 +174,7 @@ export const TransferModal: React.FC<{
                 </motion.div>
                 <div>
                    <h3 className="text-xl font-bold text-white mb-2">Transaction Processing</h3>
-                   <p className="text-sm text-slate-400">{isDeposit ? 'Virtual funds are being added to your portfolio.' : 'Virtual withdrawal request submitted.'}</p>
+                   <p className="text-sm text-slate-400">{isDeposit ? 'Deposit request submitted and is pending approval.' : 'Withdrawal request submitted and is pending approval.'}</p>
                 </div>
               </div>
             )}

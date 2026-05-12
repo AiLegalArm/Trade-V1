@@ -1,26 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { User, Mail, Camera, Save, AlertCircle, Shield, Smartphone, Key, Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { User, Mail, Camera, Save, AlertCircle, Shield, Smartphone, Key, Lock, Languages, History } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useUserStore } from '../../stores/userStore';
 
 export const ProfileSettings: React.FC = () => {
   const { user } = useAuth();
+  const { profile, updateProfile: updateUserStore } = useUserStore();
+  const { t, i18n } = useTranslation('common');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
-  const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || '');
-  const [mfaEnabled, setMfaEnabled] = useState(false); // UI State for demo, could integrate with supabase.auth.mfa
+  const [fullName, setFullName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+
+  useEffect(() => {
+     if (profile) {
+        setFullName(profile.display_name || profile.full_name || profile.username || user?.user_metadata?.full_name || '');
+        setAvatarUrl(profile.avatar_url || user?.user_metadata?.avatar_url || '');
+     }
+  }, [profile, user]);
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+  };
 
   const updateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
     try {
+      // Also update auth meta
       const { error } = await supabase.auth.updateUser({
-        data: { full_name: fullName, avatar_url: avatarUrl }
+        data: { display_name: fullName, avatar_url: avatarUrl }
       });
       if (error) throw error;
+
+      await updateUserStore({ display_name: fullName, avatar_url: avatarUrl });
+      
       setMessage({ type: 'success', text: 'Terminal identity updated.' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message });
@@ -35,11 +54,13 @@ export const ProfileSettings: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-white uppercase tracking-[0.2em]">Operator Profile</h2>
-          <p className="text-sm text-accent-primary font-bold mt-1 tracking-widest uppercase opacity-70">Clearance Level: Elite</p>
+          <h2 className="text-3xl font-bold text-white uppercase tracking-[0.2em]">{t('operatorProfile')}</h2>
+          <p className="text-sm text-accent-primary font-bold mt-1 tracking-widest uppercase opacity-70">
+            {t('clearanceLevel', { level: profile?.role || 'Elite' })} • {profile?.kyc_status || 'Unverified'}
+          </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-primary/10 border border-accent-primary/20 rounded-lg text-[10px] font-bold text-accent-primary uppercase tracking-widest">
           <Shield size={12} /> Encrypted Session
@@ -47,30 +68,13 @@ export const ProfileSettings: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Profile Configuration */}
         <div className="lg:col-span-2 space-y-8">
+          {/* Identity Section */}
           <div className="glass-card p-8 holo-border relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-accent-primary/5 rounded-full blur-3xl pointer-events-none" />
-            
             <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
               <User size={20} className="text-accent-primary" />
-              Identity Configuration
+              {t('identityConfig')}
             </h3>
-
-            {message && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`mb-8 p-4 rounded-xl border flex items-center gap-3 ${
-                  message.type === 'error' 
-                  ? 'bg-accent-quaternary/10 border-accent-quaternary/30 text-accent-quaternary' 
-                  : 'bg-accent-secondary/10 border-accent-secondary/30 text-accent-secondary'
-                }`}
-              >
-                <AlertCircle size={16} />
-                <p className="text-xs font-bold uppercase tracking-wider">{message.text}</p>
-              </motion.div>
-            )}
 
             <div className="flex flex-col md:flex-row gap-8 relative z-10">
               <div className="flex flex-col items-center gap-4">
@@ -84,76 +88,67 @@ export const ProfileSettings: React.FC = () => {
                   </div>
                   <div className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                      <Camera className="text-white mb-1" size={24} />
-                     <span className="text-[10px] font-bold text-white uppercase tracking-wider">Cycle Avatar</span>
+                     <span className="text-[10px] font-bold text-white uppercase tracking-wider">{t('cycleAvatar')}</span>
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest text-center">Visual ID</p>
               </div>
 
               <form onSubmit={updateProfile} className="flex-1 space-y-6">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Display Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <User size={16} className="text-accent-primary/50" />
-                    </div>
-                    <input
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full bg-[#111] border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-accent-primary/50 transition-all"
-                    />
-                  </div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('displayName')}</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full bg-[#111] border border-white/5 rounded-xl py-3 px-4 text-sm text-white focus:border-accent-primary/50"
+                  />
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Mail size={16} className="text-slate-600" />
-                    </div>
-                    <input
-                      type="email"
-                      value={user?.email || ''}
-                      disabled
-                      className="w-full bg-[#0a0a0a] border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-500 cursor-not-allowed opacity-70"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-white/5 flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-8 py-3 bg-accent-primary/10 border border-accent-primary/30 rounded-xl text-xs font-bold text-accent-primary hover:bg-accent-primary hover:text-black shadow-neon-gold active:scale-[0.98] transition-all flex items-center gap-2 group"
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        Update Protocol <Save size={16} />
-                      </>
-                    )}
+                <div className="pt-4 flex justify-end">
+                  <button type="submit" disabled={loading} className="px-8 py-3 bg-accent-primary/10 border border-accent-primary/30 rounded-xl text-xs font-bold text-accent-primary hover:bg-accent-primary hover:text-black shadow-neon-gold transition-all flex items-center gap-2">
+                    {t('updateProtocol')} <Save size={16} />
                   </button>
                 </div>
               </form>
             </div>
           </div>
 
+          {/* Localization Section */}
+          <div className="glass-card p-8 holo-border">
+             <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
+                <Languages size={20} className="text-accent-secondary" />
+                {t('localizationUnits')}
+             </h3>
+             <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => changeLanguage('en')}
+                  className={`p-4 rounded-xl border transition-all text-left ${i18n.language === 'en' ? 'bg-accent-secondary/10 border-accent-secondary/50' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                >
+                   <p className="text-xs font-bold text-white mb-1">English (Global)</p>
+                   <p className="text-[10px] text-slate-500 uppercase">Standard market terminology</p>
+                </button>
+                <button 
+                  onClick={() => changeLanguage('de')}
+                  className={`p-4 rounded-xl border transition-all text-left ${i18n.language === 'de' ? 'bg-accent-secondary/10 border-accent-secondary/50' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                >
+                   <p className="text-xs font-bold text-white mb-1">Deutsch (German)</p>
+                   <p className="text-[10px] text-slate-500 uppercase">Vollständige Lokalisierung</p>
+                </button>
+             </div>
+          </div>
+
+          {/* Security Section (Briefly) */}
           <div className="glass-card p-8 holo-border">
             <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
               <Shield size={20} className="text-accent-secondary" />
-              Advanced Security (MFA)
+              {t('advancedSecurity')}
             </h3>
-            
-            <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-accent-secondary/10 flex items-center justify-center text-accent-secondary">
                     <Smartphone size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">Two-Factor Authentication</p>
+                    <p className="text-sm font-bold text-white">{t('twoFactor')}</p>
                     <p className="text-[10px] text-slate-500 uppercase tracking-wider">Secondary validation required</p>
                   </div>
                 </div>
@@ -166,54 +161,24 @@ export const ProfileSettings: React.FC = () => {
                     className="absolute top-1 left-0 w-4 h-4 bg-white rounded-full shadow-lg"
                   />
                 </button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-accent-primary/10 flex items-center justify-center text-accent-primary">
-                    <Key size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">Hardware Key Support</p>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">YubiKey & FIDO2 Protocols</p>
-                  </div>
-                </div>
-                <button className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition-colors">Configure</button>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Informational / Stats Sidebar */}
         <div className="space-y-6">
            <div className="glass-card p-6 border-accent-tertiary/20">
               <div className="flex items-center gap-3 mb-6">
                  <div className="w-10 h-10 rounded-xl bg-accent-tertiary/20 flex items-center justify-center text-accent-tertiary shadow-neon-blue">
-                    <Lock size={20} />
+                    <History size={20} />
                  </div>
-                 <h4 className="text-sm font-bold text-white uppercase tracking-widest">Security Status</h4>
+                 <h4 className="text-sm font-bold text-white uppercase tracking-widest">{t('entryHistory')}</h4>
               </div>
               <div className="space-y-4">
                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500">Last Entrance</span>
+                    <span className="text-slate-500 italic">Last Session</span>
                     <span className="text-slate-300 font-mono">12m ago</span>
                  </div>
-                 <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500">Active Sessions</span>
-                    <span className="text-accent-secondary font-bold">01</span>
-                 </div>
-                 <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500">Encryption Grade</span>
-                    <span className="text-white font-bold">AES-256-GCM</span>
-                 </div>
               </div>
-           </div>
-
-           <div className="p-6 rounded-2xl bg-gradient-to-br from-accent-primary/10 via-transparent to-transparent border border-accent-primary/10">
-              <p className="text-[10px] font-bold text-accent-primary uppercase tracking-[0.2em] mb-2">Privacy Protocol</p>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Your biological identity data is never shared. Bullenhaus utilizes zero-knowledge proofs for cross-terminal validation.
-              </p>
            </div>
         </div>
       </div>

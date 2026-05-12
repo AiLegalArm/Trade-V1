@@ -20,22 +20,22 @@ export const useMarketEngine = () => {
     let ws: WebSocket | null = null;
     
     const connectWS = () => {
-      // Connect to combined stream for all miniTickers
-      // This provides 24h rolling window ticker statistics for all symbols.
-      // Better to use individual streams if we want to save bandwidth, but combined is easier setup:
-      // wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker...
-      
-      const streams = CRYPTO_PAIRS.map(p => `${p}@ticker`).join('/');
-      ws = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
+      // Connect to combined stream for all tickers
+      // Using !ticker@arr to get all 24hr ticker stats without passing a huge URL
+      ws = new WebSocket(`wss://stream.binance.com:9443/ws/!ticker@arr`);
       
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data && data.data && data.data.c && data.data.s) {
-          const symbol = data.data.s;
-          const currentPrice = parseFloat(data.data.c);
-          const priceChangePercent24h = parseFloat(data.data.P);
-          
-          updatePrice(symbol, currentPrice, priceChangePercent24h);
+        if (Array.isArray(data)) {
+          data.forEach((item: any) => {
+            const lowerSymbol = item.s.toLowerCase();
+            // Only process if it's in our list to save CPU
+            if (CRYPTO_PAIRS.includes(lowerSymbol)) {
+              const currentPrice = parseFloat(item.c);
+              const priceChangePercent24h = parseFloat(item.P);
+              updatePrice(lowerSymbol, currentPrice, priceChangePercent24h);
+            }
+          });
         }
       };
 

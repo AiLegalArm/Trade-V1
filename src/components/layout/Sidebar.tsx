@@ -66,9 +66,9 @@ const SidebarItem = ({ icon: Icon, label, active, alert, to, onClick }: SidebarI
 };
 
 export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, role } = useAuth();
   const currentPath = window.location.pathname;
 
   const handleLogout = async () => {
@@ -109,27 +109,29 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
 
       <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar pr-2">
         <SidebarItem icon={LayoutDashboard} label={t('dashboard')} to="/dashboard" active={currentPath === '/dashboard'} onClick={onClose} />
-        <SidebarItem icon={BarChart3} label={t('markets')} onClick={onClose} />
-        <SidebarItem icon={Repeat} label={t('trade')} onClick={onClose} />
+        <SidebarItem icon={BarChart3} label={t('markets')} to="/markets" active={currentPath === '/markets'} onClick={onClose} />
+        <SidebarItem icon={Repeat} label={t('trade')} to="/trade" active={currentPath === '/trade'} onClick={onClose} />
         <SidebarItem icon={Briefcase} label={t('portfolio')} to="/portfolio" active={currentPath === '/portfolio'} onClick={onClose} />
         <SidebarItem icon={Wallet} label={t('wallet')} to="/portfolio" active={currentPath === '/portfolio'} onClick={onClose} />
-        <SidebarItem icon={History} label={t('transactions')} onClick={onClose} />
+        <SidebarItem icon={History} label={t('transactions')} to="/transactions" active={currentPath === '/transactions'} onClick={onClose} />
         
-        <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Growth</div>
+        <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('growth', { defaultValue: 'Growth' })}</div>
         <SidebarItem icon={Trophy} label={t('rewards')} to="/gamification" active={currentPath === '/gamification'} onClick={onClose} />
-        <SidebarItem icon={GraduationCap} label="Academy" to="/academy" active={currentPath === '/academy'} onClick={onClose} />
-        <SidebarItem icon={Users} label={t('leaderboard')} to="/gamification" active={currentPath === '/gamification'} onClick={onClose} />
-        <SidebarItem icon={Users2} label="Referrals" onClick={onClose} />
-        <SidebarItem icon={Bell} label="Notifications" alert={12} onClick={onClose} />
+        <SidebarItem icon={Users2} label={t('referrals')} to="/referrals" active={currentPath === '/referrals'} onClick={onClose} />
+        <SidebarItem icon={Bell} label={t('notifications')} to="/notifications" active={currentPath === '/notifications'} alert={12} onClick={onClose} />
 
-        <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account</div>
-        <SidebarItem icon={ShieldCheck} label="KYC Verification" onClick={onClose} />
-        <SidebarItem icon={UserCircle} label="Profile" to="/settings" active={currentPath === '/settings'} onClick={onClose} />
-        <SidebarItem icon={Settings} label={t('settings')} onClick={onClose} />
-        <SidebarItem icon={LifeBuoy} label={t('help')} onClick={onClose} />
+        <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('account', { defaultValue: 'Account' })}</div>
+        <SidebarItem icon={ShieldCheck} label={t('kyc')} to="/kyc" active={currentPath === '/kyc'} onClick={onClose} />
+        <SidebarItem icon={UserCircle} label={t('profile')} to="/settings" active={currentPath === '/settings'} onClick={onClose} />
+        <SidebarItem icon={Settings} label={t('settings')} to="/settings" active={currentPath === '/settings'} onClick={onClose} />
+        <SidebarItem icon={LifeBuoy} label={t('help')} to="/support" active={currentPath === '/support'} onClick={onClose} />
 
-        <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest">System</div>
-        <SidebarItem icon={Terminal} label="Command Center" to="/admin" active={currentPath === '/admin'} onClick={onClose} />
+        {role === 'ADMIN' && (
+          <>
+            <div className="pt-4 pb-2 px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest">System</div>
+            <SidebarItem icon={Terminal} label={t('admin')} to="/admin" active={currentPath.startsWith('/admin')} onClick={onClose} />
+          </>
+        )}
         
         <div className="pt-6">
           <ProTraderCard />
@@ -139,9 +141,15 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
 
       <div className="mt-auto pt-4 border-t border-border-glass">
         <div className="flex items-center justify-between px-2 mb-6">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all">
+          <div 
+            onClick={() => {
+              const nextLang = i18n.language === 'en' ? 'de' : 'en';
+              i18n.changeLanguage(nextLang);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all"
+          >
              <Globe size={14} className="text-slate-400" />
-             <span className="text-[10px] font-bold text-slate-300">EN</span>
+             <span className="text-[10px] font-bold text-slate-300 uppercase">{i18n.language}</span>
              <ChevronRight size={10} className="rotate-90 text-slate-500" />
           </div>
           <div className="p-2 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all">
@@ -152,7 +160,7 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
         <div onClick={handleLogout} className="flex items-center justify-between px-2 text-slate-500 hover:text-white cursor-pointer transition-colors group">
           <div className="flex items-center gap-2">
             <LogOut size={16} className="group-hover:text-accent-quaternary transition-colors" />
-            <span className="text-xs font-medium">Logout System</span>
+            <span className="text-xs font-medium">{t('logout')}</span>
           </div>
         </div>
       </div>

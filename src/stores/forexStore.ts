@@ -13,12 +13,65 @@ export interface ForexPairConfig {
   isPaused: boolean;
 }
 
-const defaultPairs: Record<string, ForexPairConfig> = {
-  'EURUSD': { symbol: 'EURUSD', price: 1.0850, basePrice: 1.0850, change24h: 0.12, volatility: 0.0001, spread: 0.0001, trend: 'sideways', isPaused: false },
-  'GBPUSD': { symbol: 'GBPUSD', price: 1.2640, basePrice: 1.2640, change24h: -0.05, volatility: 0.0001, spread: 0.0001, trend: 'sideways', isPaused: false },
-  'USDJPY': { symbol: 'USDJPY', price: 151.20, basePrice: 151.20, change24h: 0.45, volatility: 0.01, spread: 0.01, trend: 'sideways', isPaused: false },
-  'XAUUSD': { symbol: 'XAUUSD', price: 2340.50, basePrice: 2340.50, change24h: 1.2, volatility: 0.5, spread: 0.2, trend: 'bull', isPaused: false },
-};
+// Major, Minor, Exotic and Metal pairs
+const forexPairList = [
+  // Majors
+  'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+  // Minors
+  'EURGBP', 'EURJPY', 'EURCHF', 'EURAUD', 'EURCAD', 'EURNZD', 
+  'GBPJPY', 'GBPCHF', 'GBPAUD', 'GBPCAD', 'GBPNZD', 
+  'AUDJPY', 'AUDCHF', 'AUDCAD', 'AUDNZD', 
+  'CADJPY', 'CADCHF', 'NZDJPY', 'NZDCHF', 'NZDCAD', 'CHFJPY',
+  // Exotics
+  'USDTRY', 'USDMXN', 'USDZAR', 'USDSEK', 'USDNOK', 'USDDKK', 'USDPLN', 'USDCNH', 
+  'EURTRY', 'EURSEK', 'EURNOK', 'GBPTRY', 'GBPZAR', 'AUDSGD', 'SGDJPY',
+  // Metals
+  'XAUUSD', 'XAGUSD', 'XPTUSD', 'XPDUSD'
+];
+
+const defaultPairs: Record<string, ForexPairConfig> = {};
+forexPairList.forEach(symbol => {
+  let price = 1.0;
+  let volatility = 0.0001;
+  let spread = 0.0001;
+  
+  if (symbol.includes('JPY')) {
+    price = 150.0;
+    volatility = 0.01;
+    spread = 0.01;
+  } else if (symbol === 'XAUUSD') {
+    price = 2300.0;
+    volatility = 0.5;
+    spread = 0.2;
+  } else if (symbol === 'XAGUSD') {
+    price = 28.0;
+    volatility = 0.05;
+    spread = 0.02;
+  } else if (symbol === 'XPTUSD') {
+    price = 950.0;
+    volatility = 0.5;
+    spread = 0.2;
+  } else if (symbol === 'XPDUSD') {
+    price = 1050.0;
+    volatility = 0.5;
+    spread = 0.2;
+  } else if (symbol.includes('TRY') || symbol.includes('MXN') || symbol.includes('ZAR') || symbol.includes('SEK') || symbol.includes('NOK') || symbol.includes('DKK') || symbol.includes('PLN') || symbol.includes('CNH')) {
+    price = 15.0; // dummy price for exotics
+    volatility = 0.01;
+    spread = 0.005;
+  }
+
+  defaultPairs[symbol] = {
+    symbol,
+    price,
+    basePrice: price,
+    change24h: 0,
+    volatility,
+    spread,
+    trend: 'sideways',
+    isPaused: false
+  };
+});
 
 interface ForexState {
   pairs: Record<string, ForexPairConfig>;

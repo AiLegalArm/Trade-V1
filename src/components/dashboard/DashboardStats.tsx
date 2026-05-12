@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { TrendingUp, TrendingDown, DollarSign, PieChart, Activity, Wallet } from 'lucide-react';
 import { useTradingStore } from '../../stores/tradingStore';
+import { useTranslation } from 'react-i18next';
 
 interface Stat {
   label: string;
@@ -56,6 +57,7 @@ const StatCard = ({ stat, i }: any) => (
 );
 
 export const DashboardStats = () => {
+  const { t } = useTranslation('common');
   const wallet = useTradingStore(s => s.wallet);
   const positions = useTradingStore(s => s.positions);
 
@@ -71,35 +73,35 @@ export const DashboardStats = () => {
     
     return [
       { 
-        label: 'Total Balance', 
+        label: t('totalBalance', { defaultValue: 'Total Balance' }), 
         value: `$ ${wallet.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
-        change: 'Live', 
+        change: t('live', { defaultValue: 'Live' }), 
         trend: 'up' as const, 
         icon: Wallet 
       },
       { 
-        label: 'Equity', 
+        label: t('equity', { defaultValue: 'Equity' }), 
         value: `$ ${equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
-        change: 'Live', 
+        change: t('live', { defaultValue: 'Live' }), 
         trend: 'up' as const, 
         icon: PieChart 
       },
       { 
-        label: 'Unrealized P&L', 
+        label: t('unrealizedPnL', { defaultValue: 'Unrealized P&L' }), 
         value: `$ ${totalUnrealizedPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
-        change: 'Live', 
+        change: t('live', { defaultValue: 'Live' }), 
         trend: totalUnrealizedPnL >= 0 ? 'up' as const : 'down' as const, 
         icon: Activity 
       },
       { 
-        label: 'Realized P&L', 
+        label: t('realizedPnL', { defaultValue: 'Realized P&L' }), 
         value: `$ ${wallet.realizedPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
-        change: 'Live', 
+        change: t('live', { defaultValue: 'Live' }), 
         trend: wallet.realizedPnL >= 0 ? 'up' as const : 'down' as const, 
         icon: TrendingUp 
       },
     ];
-  }, [wallet, positions]);
+  }, [wallet, positions, t]);
 
   const marginRatio = wallet.balance > 0 ? (wallet.marginUsed / wallet.balance) * 100 : 0;
   const marginAvailable = Math.max(0, wallet.balance - wallet.marginUsed);
@@ -119,7 +121,7 @@ export const DashboardStats = () => {
       >
         <div className="flex flex-col h-full justify-between">
            <div className="flex items-center gap-3 mb-3">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Available Margin</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t('availableMargin', { defaultValue: 'Available Margin' })}</span>
            </div>
            <div>
               <h3 className="text-xl font-bold text-white leading-none">$ {marginAvailable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>

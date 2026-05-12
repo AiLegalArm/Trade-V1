@@ -1,17 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Bell, Search, Star, MessageSquare, Globe, ChevronDown, CheckCircle, AlertTriangle, ArrowRight, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { useAuth } from '../../contexts/AuthContext';
+import { useUserStore } from '../../stores/userStore';
 
 export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const { t, i18n } = useTranslation('common');
+  const { user } = useAuth();
+  const { profile, fetchProfile } = useUserStore();
+
+  useEffect(() => {
+    if (user) {
+      // @ts-ignore
+      fetchProfile(user.id, user.email);
+    }
+  }, [user, fetchProfile]);
 
   const notifications = [
     { id: 1, type: 'success', title: 'Order Filled', message: 'Bought 0.45 BTC @ 65,120.00', time: '2m ago' },
     { id: 2, type: 'alert', title: 'Margin Alert', message: 'ETH/USDT approaching liquidation', time: '15m ago' },
     { id: 3, type: 'info', title: 'Level Up', message: 'You reached Elite Trader tier', time: '1h ago' }
   ];
+
+  const displayName = profile?.display_name || profile?.full_name || profile?.username || user?.email || 'User';
+  const avatarUrl = profile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
 
   return (
     <div className="flex h-screen bg-surface-bg font-sans overflow-hidden">
@@ -42,8 +61,14 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-accent-primary transition-colors" size={18} />
               <input 
                 type="text" 
-                placeholder="Search markets, traders, charts..." 
+                placeholder={t('search') + "..."} 
                 className="w-full bg-white/5 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-accent-primary/30 focus:bg-white/10 transition-all font-mono placeholder:font-sans"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                    navigate(`/markets?q=${encodeURIComponent(e.currentTarget.value.trim())}`);
+                    e.currentTarget.value = '';
+                  }
+                }}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px] text-slate-500">/</kbd>
@@ -53,11 +78,16 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
 
           <div className="flex items-center gap-4">
             <div className="flex flex-row items-center gap-1">
-              <button className="p-2 cursor-pointer text-slate-400 hover:text-yellow-400 transition-colors rounded-lg hover:bg-white/5">
-                <Star size={20} />
-              </button>
-              <button className="p-2 cursor-pointer text-slate-400 hover:text-accent-primary transition-colors rounded-lg hover:bg-white/5">
-                <Globe size={20} />
+              <button 
+                onClick={() => {
+                  const nextLang = i18n.language === 'en' ? 'de' : 'en';
+                  i18n.changeLanguage(nextLang);
+                  toast.success(`Language changed to ${nextLang.toUpperCase()}`);
+                }}
+                className="p-2 cursor-pointer text-slate-400 hover:text-accent-primary transition-colors rounded-lg hover:bg-white/5 font-bold text-xs uppercase"
+              >
+                <Globe size={16} className="inline-block mr-1"/>
+                {i18n.language}
               </button>
               
               {/* Notification Center */}
@@ -81,7 +111,15 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                     >
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-sm font-bold text-white uppercase tracking-widest">System Alerts</h4>
-                        <span className="text-[10px] font-bold text-accent-primary hover:text-white cursor-pointer transition-colors">Mark All Read</span>
+                        <span 
+                          onClick={() => {
+                             toast.success('All notifications marked as read', { icon: '✓' });
+                             setNotificationsOpen(false);
+                          }}
+                          className="text-[10px] font-bold text-accent-primary hover:text-white cursor-pointer transition-colors"
+                        >
+                          Mark All Read
+                        </span>
                       </div>
                       
                       <div className="space-y-3">
@@ -110,7 +148,13 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                         ))}
                       </div>
 
-                      <button className="w-full mt-4 py-2 text-xs font-bold text-slate-400 hover:text-white border border-white/5 rounded-lg hover:bg-white/5 transition-all flex items-center justify-center gap-2 group">
+                      <button 
+                        onClick={() => {
+                          setNotificationsOpen(false);
+                          navigate('/notifications');
+                        }}
+                        className="w-full mt-4 py-2 text-xs font-bold text-slate-400 hover:text-white border border-white/5 rounded-lg hover:bg-white/5 transition-all flex items-center justify-center gap-2 group"
+                      >
                         View Log <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                       </button>
                     </motion.div>
@@ -121,17 +165,22 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
 
             <div className="h-8 w-px bg-white/10 mx-2" />
 
-            <div className="flex items-center gap-3 pl-2 cursor-pointer group">
-              <div className="text-right">
-                <p className="text-xs font-bold text-white leading-none mb-1 group-hover:text-accent-primary transition-colors">Alex Trader</p>
+            <div 
+              onClick={() => navigate('/settings')}
+              className="flex items-center gap-3 pl-2 cursor-pointer group"
+            >
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-white leading-none mb-1 group-hover:text-accent-primary transition-colors">{displayName}</p>
                 <div className="flex items-center justify-end gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent-secondary shadow-neon-emerald" />
-                  <p className="text-[9px] font-bold text-accent-secondary uppercase tracking-tighter">Elite Member</p>
+                  <span className={`w-1.5 h-1.5 rounded-full ${profile?.kyc_status === 'VERIFIED' ? 'bg-accent-secondary shadow-neon-emerald' : 'bg-orange-500 shadow-neon-gold'}`} />
+                  <p className="text-[9px] font-bold text-accent-secondary uppercase tracking-tighter">
+                    {profile?.role || 'LITE'} • {profile?.kyc_status || 'UNVERIFIED'}
+                  </p>
                 </div>
               </div>
               <div className="relative">
                 <div className="w-10 h-10 rounded-xl border border-white/10 p-0.5 overflow-hidden group-hover:border-accent-primary transition-colors group-hover:shadow-neon-gold">
-                   <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full rounded-lg bg-[#111]" />
+                   <img src={avatarUrl} alt="avatar" className="w-full h-full rounded-lg bg-[#111]" />
                 </div>
               </div>
             </div>
@@ -144,7 +193,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
           <div className="fixed top-0 left-1/4 w-96 h-96 bg-accent-primary/20 blur-[150px] rounded-full pointer-events-none z-[-1]" />
           <div className="fixed bottom-0 right-1/4 w-96 h-96 bg-accent-secondary/10 blur-[150px] rounded-full pointer-events-none z-[-1]" />
           
-          <div className="relative z-10">
+          <div className="relative z-10 w-full h-full">
             {children}
           </div>
         </main>

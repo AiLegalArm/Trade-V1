@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Mail, Lock, UserPlus, AlertCircle, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { crmService } from '../../services/crmService';
 
 export const Register: React.FC = () => {
   const [name, setName] = useState('');
@@ -18,7 +19,7 @@ export const Register: React.FC = () => {
     setError(null);
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -29,6 +30,26 @@ export const Register: React.FC = () => {
       });
 
       if (error) throw error;
+      
+      try {
+        await crmService.registerClient({
+          external_trader_id: data.user?.id || crypto.randomUUID(),
+          full_name: name,
+          email,
+          account: {
+            external_account_id: `ACC-${Math.floor(Math.random() * 100000)}`,
+            platform: 'Bullenhaus',
+            account_type: 'real',
+            currency: 'USD',
+            balance: 100000,
+            equity: 100000,
+            leverage: 100,
+          }
+        });
+      } catch (crmError) {
+        console.error('Failed to register in CRM:', crmError);
+      }
+
       setSuccess(true);
     } catch (err: any) {
       setError(err.message || 'An error occurred during registration.');

@@ -16,7 +16,7 @@ const sysData = [
 ];
 
 const mockUsers = [
-  { id: 'usr_001', name: 'Alex Trader', email: 'alex@example.com', kyc: 'Verified', xp: 88450, risk: 'Low', status: 'Active' },
+  { id: 'usr_001', name: 'Mike Johnson', email: 'mike@example.com', kyc: 'Verified', xp: 88450, risk: 'Low', status: 'Active' },
   { id: 'usr_002', name: 'Sarah Connor', email: 'sarah@example.com', kyc: 'Pending', xp: 12400, risk: 'Medium', status: 'Active' },
   { id: 'usr_003', name: 'John Doe', email: 'john@example.com', kyc: 'Rejected', xp: 450, risk: 'High', status: 'Suspended' },
   { id: 'usr_004', name: 'Emma Wilson', email: 'emma@example.com', kyc: 'Verified', xp: 145000, risk: 'Low', status: 'Active' },

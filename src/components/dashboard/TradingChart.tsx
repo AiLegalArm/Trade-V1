@@ -1,13 +1,26 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
 import { MousePointer2, Settings, Type, Crosshair, Pencil, Move, Crop, Plus } from 'lucide-react';
 import { useTradingContext } from '../../contexts/TradingContext';
 import { useTradingStore } from '../../stores/tradingStore';
+import { AssetSelector } from './AssetSelector';
 
 export const TradingChart: React.FC = () => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const { currentPair } = useTradingContext();
+  const chartRef = useRef<any>(null);
+  const seriesRef = useRef<{
+    candlestick: any;
+    volume: any;
+    ema: any;
+  } | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const unsubRef = useRef<(() => void) | null>(null);
 
+  const { currentPair, currentTimeframe, setCurrentTimeframe } = useTradingContext();
+
+  const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W'];
+
+  // Initialize chart once
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -33,7 +46,7 @@ export const TradingChart: React.FC = () => {
         borderColor: 'rgba(255, 255, 255, 0.1)',
       },
       width: chartContainerRef.current.clientWidth,
-      height: 480,
+      height: chartContainerRef.current.clientHeight || 480,
     });
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
@@ -42,7 +55,6 @@ export const TradingChart: React.FC = () => {
       borderVisible: false,
       wickUpColor: '#00E676',
       wickDownColor: '#FF3D00',
-      priceFormat: { type: 'price', precision: currentPair.includes('JPY') ? 3 : currentPair.endsWith('USDT') ? 2 : 5, minMove: 0.00001 },
     });
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -54,69 +66,116 @@ export const TradingChart: React.FC = () => {
 
     const emaSeries = chart.addSeries(LineSeries, { color: '#D4AF37', lineWidth: 2 });
 
-    let ws: WebSocket | null = null;
-    let unsub: (() => void) | null = null;
-    let lastCandleTime = 0;
-    
-    // Generate dummy historical for forex
-    const generateDummyForex = (basePrice: number) => {
-      const cData = [];
-      const vData = [];
-      const eData = [];
-      let currentVal = basePrice;
-      const now = Date.now() / 1000;
-      let sum = 0;
-
-      for (let i = 500; i >= 0; i--) {
-        const time = now - i * 60;
-        const volatility = basePrice * 0.001;
-        const open = currentVal + (Math.random() - 0.5) * volatility;
-        const close = open + (Math.random() - 0.5) * volatility * 2;
-        const high = Math.max(open, close) + Math.random() * volatility;
-        const low = Math.min(open, close) - Math.random() * volatility;
-        
-        currentVal = close;
-
-        cData.push({ time, open, high, low, close });
-
-        const isUp = close >= open;
-        vData.push({ time, value: Math.random() * 1000 + 500, color: isUp ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 61, 0, 0.3)' });
-
-        sum += close;
-        eData.push({ time, value: 500 - i >= 8 ? (sum/9) : (sum / ((500-i) + 1)) });
-        if (500 - i >= 8) sum -= cData[500 - i - 8].close;
-      }
-      return { cData, vData, eData };
+    chartRef.current = chart;
+    seriesRef.current = {
+      candlestick: candlestickSeries,
+      volume: volumeSeries,
+      ema: emaSeries,
     };
+
+    const handleResize = () => {
+      chart.applyOptions({ 
+        width: chartContainerRef.current?.clientWidth,
+        height: chartContainerRef.current?.clientHeight, 
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+      chartRef.current = null;
+    };
+  }, []);
+
+  // Handle data updates
+  useEffect(() => {
+    if (!chartRef.current || !seriesRef.current) return;
+
+    if (wsRef.current) {
+       wsRef.current.close();
+       wsRef.current = null;
+    }
+    if (unsubRef.current) {
+       unsubRef.current();
+       unsubRef.current = null;
+    }
+
+    const { candlestick, volume, ema } = seriesRef.current;
+
+    const getTfSeconds = (tf: string) => {
+      const value = parseInt(tf);
+      if (tf.endsWith('m')) return value * 60;
+      if (tf.endsWith('h')) return value * 3600;
+      if (tf.endsWith('D')) return value * 86400;
+      if (tf.endsWith('W')) return value * 604800;
+      return 60;
+    };
+    const tfSeconds = getTfSeconds(currentTimeframe);
+
+    // Update precision dynamically without recreating series
+    candlestick.applyOptions({
+      priceFormat: { 
+         type: 'price', 
+         precision: currentPair.includes('JPY') ? 3 : currentPair.endsWith('USDT') ? 2 : 5, 
+         minMove: currentPair.includes('JPY') ? 0.001 : currentPair.endsWith('USDT') ? 0.01 : 0.00001
+      }
+    });
 
     const isForex = !currentPair.endsWith('USDT');
 
     if (isForex) {
+       const generateDummyForex = (basePrice: number) => {
+         const cData = [];
+         const vData = [];
+         const eData = [];
+         let currentVal = basePrice;
+         const now = Math.floor(Date.now() / 1000);
+         let sum = 0;
+
+         for (let i = 500; i >= 0; i--) {
+           const time = (now - i * tfSeconds) as any;
+           const volatility = basePrice * 0.001;
+           const open = currentVal + (Math.random() - 0.5) * volatility;
+           const close = open + (Math.random() - 0.5) * volatility * 2;
+           const high = Math.max(open, close) + Math.random() * volatility;
+           const low = Math.min(open, close) - Math.random() * volatility;
+           
+           currentVal = close;
+
+           cData.push({ time, open, high, low, close });
+
+           const isUp = close >= open;
+           vData.push({ time, value: Math.random() * 1000 + 500, color: isUp ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 61, 0, 0.3)' });
+
+           sum += close;
+           const emaVal = i >= 8 ? (sum / 9) : (sum / (i + 1));
+           eData.push({ time, value: emaVal });
+           if (500 - i >= 8) sum -= cData[500 - i - 8].close;
+         }
+         return { cData, vData, eData };
+       };
+
        const curPrice = useTradingStore.getState().prices[currentPair] || 1.1;
        const { cData, vData, eData } = generateDummyForex(curPrice);
-       candlestickSeries.setData(cData as any);
-       volumeSeries.setData(vData as any);
-       emaSeries.setData(eData as any);
-
-       if (cData.length > 0) {
-           lastCandleTime = cData[cData.length - 1].time;
-       }
+       candlestick.setData(cData as any);
+       volume.setData(vData as any);
+       ema.setData(eData as any);
 
        let lastPrice = curPrice;
-       unsub = useTradingStore.subscribe(
+       unsubRef.current = useTradingStore.subscribe(
           (state) => {
              const newPrice = state.prices[currentPair];
              if (!newPrice || newPrice === lastPrice) return;
              lastPrice = newPrice;
              
              const now = Math.floor(Date.now() / 1000);
-             // A new candle every 60s
-             const candleTime = now - (now % 60);
+             const candleTime = now - (now % tfSeconds);
 
-             // Extremely simplified live candle update just for visual effect
-             candlestickSeries.update({
+             candlestick.update({
                 time: candleTime as any,
-                open: newPrice, // not perfectly realistic but visual logic works
+                open: newPrice,
                 high: newPrice * 1.0001,
                 low: newPrice * 0.9999,
                 close: newPrice
@@ -128,7 +187,8 @@ export const TradingChart: React.FC = () => {
        const fetchHistoricalData = async () => {
          try {
            const symbol = currentPair.toUpperCase();
-           const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1m&limit=500`);
+           const binanceInterval = currentTimeframe.toLowerCase();
+           const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${binanceInterval}&limit=500`);
            const data = await res.json();
            
            const cData = [];
@@ -143,27 +203,27 @@ export const TradingChart: React.FC = () => {
              const high = parseFloat(d[2]);
              const low = parseFloat(d[3]);
              const close = parseFloat(d[4]);
-             const volume = parseFloat(d[5]);
+             const vol = parseFloat(d[5]);
              
              cData.push({ time, open, high, low, close });
              
              const isUp = close >= open;
-             vData.push({ time, value: volume, color: isUp ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 61, 0, 0.3)' });
+             vData.push({ time, value: vol, color: isUp ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 61, 0, 0.3)' });
              
              sum += close;
-             const ema = i >= 8 ? (sum / 9) : (sum / (i + 1));
-             eData.push({ time, value: ema });
+             const emaVal = i >= 8 ? (sum / 9) : (sum / (i + 1));
+             eData.push({ time, value: emaVal });
              if(i >= 8) sum -= parseFloat(data[i-8][4]);
            }
            
-           candlestickSeries.setData(cData as any);
-           volumeSeries.setData(vData as any);
-           emaSeries.setData(eData as any);
+           candlestick.setData(cData as any);
+           volume.setData(vData as any);
+           ema.setData(eData as any);
            
            const lowerSymbol = symbol.toLowerCase();
-           ws = new WebSocket(`wss://stream.binance.com:9443/ws/${lowerSymbol}@kline_1m`);
+           wsRef.current = new WebSocket(`wss://stream.binance.com:9443/ws/${lowerSymbol}@kline_${binanceInterval}`);
            
-           ws.onmessage = (event) => {
+           wsRef.current.onmessage = (event) => {
              const msg = JSON.parse(event.data);
              if (msg && msg.k) {
                const k = msg.k;
@@ -172,11 +232,11 @@ export const TradingChart: React.FC = () => {
                const high = parseFloat(k.h);
                const low = parseFloat(k.l);
                const close = parseFloat(k.c);
-               const volume = parseFloat(k.v);
+               const vol = parseFloat(k.v);
                
-               candlestickSeries.update({ time: time as any, open, high, low, close });
+               candlestick.update({ time: time as any, open, high, low, close });
                const isUp = close >= open;
-               volumeSeries.update({ time: time as any, value: volume, color: isUp ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 61, 0, 0.3)' });
+               volume.update({ time: time as any, value: vol, color: isUp ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 61, 0, 0.3)' });
              }
            };
          } catch (err) {
@@ -186,24 +246,36 @@ export const TradingChart: React.FC = () => {
        fetchHistoricalData();
     }
 
-    const handleResize = () => {
-      chart.applyOptions({ width: chartContainerRef.current?.clientWidth });
-    };
-
-    window.addEventListener('resize', handleResize);
-
     return () => {
-      window.removeEventListener('resize', handleResize);
-      if (ws) ws.close();
-      if (unsub) unsub();
-      chart.remove();
+      if (wsRef.current) wsRef.current.close();
+      if (unsubRef.current) unsubRef.current();
     };
-  }, [currentPair]);
+  }, [currentPair, currentTimeframe]);
 
   return (
     <div className="relative w-full h-full flex bg-[#0a0a0a]">
+      {/* Top Toolbar */}
+       <div className="absolute top-0 left-12 right-0 h-10 border-b border-white/5 bg-surface-bg/80 backdrop-blur z-20 flex items-center justify-between">
+          <div className="flex items-center h-full">
+             <AssetSelector />
+             <div className="flex gap-1 px-4">
+               {timeframes.map(tf => (
+                  <button
+                     key={tf}
+                     onClick={() => setCurrentTimeframe(tf)}
+                     className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${currentTimeframe === tf ? 'bg-accent-primary text-black' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+                  >
+                     {tf}
+                  </button>
+               ))}
+             </div>
+          </div>
+          <div className="flex items-center gap-4 px-4">
+          </div>
+       </div>
+
       {/* Left Drawing Tools Sidebar */}
-      <div className="w-12 h-full border-r border-white/5 flex flex-col items-center py-4 gap-4 z-10 bg-surface-bg/50">
+      <div className="w-12 h-full border-r border-white/5 flex flex-col items-center py-4 gap-4 z-10 bg-surface-bg/50 pt-14">
         {[MousePointer2, Crosshair, Pencil, Move, Crop, Type, Plus].map((Icon, idx) => (
           <button key={idx} className="p-2 text-slate-500 hover:text-accent-primary hover:bg-accent-primary/10 rounded-lg transition-all">
             <Icon size={16} />

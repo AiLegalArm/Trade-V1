@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Wallet, ArrowUpRight, ArrowDownRight, TrendingUp, History, PieChart, Download, Upload, ShieldCheck, Activity } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { TransferModal } from './TransferModal';
 
@@ -30,6 +32,8 @@ const transactions = [
 ];
 
 export const Portfolio: React.FC = () => {
+  const { t } = useTranslation('common');
+  const navigate = useNavigate();
   const [timeframe, setTimeframe] = useState('1W');
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [transferType, setTransferType] = useState<'deposit' | 'withdraw'>('deposit');
@@ -249,9 +253,9 @@ export const Portfolio: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                  <History className="text-accent-secondary" size={20} />
-                 <h3 className="text-sm font-bold text-white uppercase tracking-widest">Transactions</h3>
+                 <h3 className="text-sm font-bold text-white uppercase tracking-widest">{t('transactions')}</h3>
               </div>
-              <button className="text-[10px] font-bold text-slate-400 hover:text-white transition-colors">View All</button>
+              <button onClick={() => navigate('/transactions')} className="text-[10px] font-bold text-slate-400 hover:text-white transition-colors">View All</button>
             </div>
 
             <div className="space-y-4">

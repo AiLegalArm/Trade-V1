@@ -1,17 +1,88 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForexStore, ForexTrend } from '../../stores/forexStore';
-import { Activity, Play, Pause, Zap, BarChart2, Hash } from 'lucide-react';
+import { useTradingStore } from '../../stores/tradingStore';
+import { Activity, Play, Pause, Zap, BarChart2, Hash, Edit3 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export const MarketControlPanel = () => {
-   const { pairs, updatePrice, setVolatility, setSpread, setTrend, togglePause, resetMarket } = useForexStore();
+   const { pairs, updatePrice: updateForexPrice, setVolatility, setSpread, setTrend, togglePause, resetMarket } = useForexStore();
+   const { priceOverrides, setPriceOverride } = useTradingStore();
+   
+   const [globalSymbol, setGlobalSymbol] = useState('');
+   const [globalPrice, setGlobalPrice] = useState('');
+
+   const handleSetGlobalOverride = () => {
+     if (!globalSymbol.trim()) {
+       toast.error('Symbol required');
+       return;
+     }
+     if (!globalPrice) {
+       setPriceOverride(globalSymbol.trim().toLowerCase(), null);
+       toast.success(`Removed override for ${globalSymbol.trim().toUpperCase()}`);
+     } else {
+       setPriceOverride(globalSymbol.trim().toLowerCase(), parseFloat(globalPrice));
+       toast.success(`Override set for ${globalSymbol.trim().toUpperCase()} to ${globalPrice}`);
+     }
+     setGlobalSymbol('');
+     setGlobalPrice('');
+   };
 
    return (
       <div className="col-span-12 glass-card p-6 border-white/5 space-y-8 animate-in fade-in">
         <div className="flex items-center justify-between">
            <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
-              <Zap size={18} className="text-accent-secondary" /> Forex Control Engine
+              <Zap size={18} className="text-accent-secondary" /> Global Market Overrides
            </h3>
-           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 py-1 bg-white/5 rounded border border-white/10">Simulated Markets Only</span>
+           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 py-1 bg-white/5 rounded border border-white/10">Admin Manipulation Tool</span>
+        </div>
+
+        <div className="bg-white/5 p-4 rounded-2xl border border-white/10 flex flex-wrap items-end gap-4">
+           <div className="flex-1 min-w-[200px]">
+             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Asset Symbol (e.g. btcusdt)</label>
+             <input 
+               type="text" 
+               value={globalSymbol}
+               onChange={(e) => setGlobalSymbol(e.target.value)}
+               placeholder="btcusdt"
+               className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-accent-primary uppercase"
+             />
+           </div>
+           <div className="flex-1 min-w-[200px]">
+             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Fixed Price (leave empty to remove)</label>
+             <input 
+               type="number" 
+               step="0.0001"
+               value={globalPrice}
+               onChange={(e) => setGlobalPrice(e.target.value)}
+               placeholder="e.g. 150000"
+               className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-accent-primary"
+             />
+           </div>
+           <button 
+             onClick={handleSetGlobalOverride}
+             className="px-6 py-2 h-[38px] bg-accent-primary/20 hover:bg-accent-primary/30 text-accent-primary font-bold rounded-lg text-xs transition-colors flex items-center gap-2"
+           >
+             <Edit3 size={14} /> Apply Override
+           </button>
+        </div>
+        
+        {Object.keys(priceOverrides).length > 0 && (
+          <div className="flex flex-wrap gap-2">
+             {Object.entries(priceOverrides).map(([sym, pr]) => (
+                <div key={sym} className="flex items-center gap-2 bg-accent-primary/10 border border-accent-primary/20 px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-accent-primary">
+                  <span className="uppercase">{sym}</span> = {pr}
+                  <button onClick={() => setPriceOverride(sym, null)} className="ml-2 hover:text-white">&times;</button>
+                </div>
+             ))}
+          </div>
+        )}
+
+        <hr className="border-white/5" />
+
+        <div className="flex items-center justify-between">
+           <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+              <Zap size={18} className="text-slate-400" /> Forex Volatility Engine
+           </h3>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -27,14 +98,22 @@ export const MarketControlPanel = () => {
                    <div className="flex flex-col items-end gap-2">
                      <div className="flex gap-2">
                        <button 
-                         onClick={() => resetMarket(pair.symbol)}
+                         onClick={() => {
+                           if(window.confirm("Reset market to default?")) {
+                             resetMarket(pair.symbol);
+                             toast.success(`${pair.symbol} market reset to default`);
+                           }
+                         }}
                          className="p-2 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-all shadow-lg text-[10px] font-bold uppercase tracking-widest"
                          title="Reset to default"
                        >
                          Reset
                        </button>
                        <button 
-                         onClick={() => togglePause(pair.symbol)}
+                         onClick={() => {
+                           togglePause(pair.symbol);
+                           toast.success(`${pair.symbol} market ${pair.isPaused ? 'resumed' : 'paused'}`);
+                         }}
                          className={`p-2 rounded-lg text-white transition-all shadow-lg ${pair.isPaused ? 'bg-orange-500 hover:bg-orange-400' : 'bg-slate-700 hover:bg-slate-600'}`}
                          title={pair.isPaused ? 'Resume Market' : 'Pause Market'}
                        >
@@ -59,7 +138,13 @@ export const MarketControlPanel = () => {
                          <button 
                            onClick={() => {
                              const el = document.getElementById(`override-${pair.symbol}`) as HTMLInputElement;
-                             if(el && el.value) updatePrice(pair.symbol, parseFloat(el.value));
+                             if(el && el.value) {
+                               updateForexPrice(pair.symbol, parseFloat(el.value));
+                               toast.success(`${pair.symbol} price updated to ${el.value}`);
+                               el.value = '';
+                             } else {
+                               toast.error('Please enter a valid price');
+                             }
                            }}
                            className="px-4 py-2 bg-accent-primary/20 hover:bg-accent-primary/30 text-accent-primary font-bold rounded-lg text-xs transition-colors"
                          >
@@ -111,7 +196,13 @@ export const MarketControlPanel = () => {
                         ].map(t => (
                           <button 
                             key={t.id}
-                            onClick={() => setTrend(pair.symbol, t.id as ForexTrend)}
+                            onClick={() => {
+                               if (t.id === 'crash') {
+                                 if (!window.confirm("Trigger Flash Crash for " + pair.symbol + "?")) return;
+                               }
+                               setTrend(pair.symbol, t.id as ForexTrend);
+                               toast.success(`${pair.symbol} trend set to ${t.label}`);
+                            }}
                             className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition-all ${
                               pair.trend === t.id ? t.col.replace('hover:bg', 'bg').replace('/10', '/30') : `bg-transparent ${t.col}`
                             }`}

@@ -1,6 +1,9 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Trophy, Shield, Zap, Medal, Star, ChevronRight, Activity, TrendingUp, Award, Crown, CheckCircle2, Lock } from 'lucide-react';
+import { useUserStore } from '../../stores/userStore';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTradingStore } from '../../stores/tradingStore';
 
 const badges = [
   { id: 1, name: 'First Blood', description: 'Complete your first virtual trade', icon: Zap, unlocked: true, color: 'text-accent-primary', bg: 'bg-accent-primary/10', border: 'border-accent-primary/30' },
@@ -11,15 +14,33 @@ const badges = [
   { id: 6, name: 'Diamond Hands', description: 'Hold a winning position for more than 72 hours', icon: Medal, unlocked: false, color: 'text-slate-500', bg: 'bg-white/5', border: 'border-white/10' },
 ];
 
-const leaderboard = [
-  { rank: 1, name: 'AlphaCentauri', level: 'Diamond II', score: 98450, pnl: '+45.2%', isCurrentUser: false },
-  { rank: 2, name: 'QuantumTrader', level: 'Diamond I', score: 92120, pnl: '+38.7%', isCurrentUser: false },
-  { rank: 3, name: 'Alex Trader', level: 'Gold III', score: 88450, pnl: '+24.1%', isCurrentUser: true },
-  { rank: 4, name: 'BearGrylls', level: 'Gold II', score: 81300, pnl: '+18.5%', isCurrentUser: false },
-  { rank: 5, name: 'CryptoKnight', level: 'Gold I', score: 76000, pnl: '+15.2%', isCurrentUser: false },
-];
-
 export const Gamification: React.FC = () => {
+  const { profile } = useUserStore();
+  const { user } = useAuth();
+  const { wallet, positions } = useTradingStore();
+  const displayName = profile?.display_name || profile?.full_name || profile?.username || user?.email || 'User';
+  const roleName = profile?.role || 'LITE';
+
+  // Calculate real stats
+  const totalTrades = positions.length;
+  const closedPositions = positions.filter(p => p.status === 'closed');
+  const winningTrades = closedPositions.filter(p => p.unrealizedPnL > 0).length;
+  const winRate = closedPositions.length > 0 ? (winningTrades / closedPositions.length) * 100 : 0;
+  
+  const totalPnL = wallet.realizedPnL;
+  const isPnLPositive = totalPnL >= 0;
+  
+  // Calculate XP (just a dummy formula based on trades and PNL for realism)
+  const userXP = totalTrades * 100 + (totalPnL > 0 ? totalPnL / 10 : 0);
+
+  const leaderboard = [
+    { rank: 1, name: 'AlphaCentauri', level: 'ADMIN', score: 98450, pnl: '+45.2%', isCurrentUser: false },
+    { rank: 2, name: 'QuantumTrader', level: 'PRO', score: 92120, pnl: '+38.7%', isCurrentUser: false },
+    { rank: 3, name: displayName, level: roleName, score: Math.round(userXP), pnl: `${isPnLPositive ? '+' : ''}$${totalPnL.toFixed(2)}`, isCurrentUser: true },
+    { rank: 4, name: 'BearGrylls', level: 'STUDENT', score: 81300, pnl: '+18.5%', isCurrentUser: false },
+    { rank: 5, name: 'CryptoKnight', level: 'STUDENT', score: 76000, pnl: '+15.2%', isCurrentUser: false },
+  ];
+
   return (
     <div className="max-w-[1400px] mx-auto space-y-8 animate-in fade-in duration-500">
       {/* Header */}
@@ -58,20 +79,20 @@ export const Gamification: React.FC = () => {
               <div className="flex-1 w-full text-center md:text-left">
                 <p className="text-[10px] font-bold text-accent-primary/70 uppercase tracking-[0.2em] mb-1">Current Status</p>
                 <div className="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-4 mb-6">
-                  <h3 className="text-4xl font-bold text-white tracking-tight uppercase">Gold III</h3>
-                  <span className="text-sm font-bold text-slate-400">Top 12% of Traders</span>
+                  <h3 className="text-4xl font-bold text-white tracking-tight uppercase">{roleName}</h3>
+                  <span className="text-sm font-bold text-slate-400">Total XP: {Math.round(userXP).toLocaleString()}</span>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Level Progress</span>
-                    <span className="text-xs font-bold text-accent-primary glows-text">88,450 / 100,000 XP</span>
+                    <span className="text-xs font-bold text-accent-primary glows-text">{Math.round(userXP).toLocaleString()} / 100,000 XP</span>
                   </div>
                   
                   <div className="h-3 w-full bg-[#111] rounded-full overflow-hidden border border-white/5 relative">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: '88.45%' }}
+                      animate={{ width: `${Math.min(100, (userXP / 100000) * 100)}%` }}
                       transition={{ duration: 1.5, ease: 'easeOut' }}
                       className="h-full relative shadow-[0_0_15px_rgba(212,175,55,0.8)]"
                     >
@@ -79,7 +100,7 @@ export const Gamification: React.FC = () => {
                       <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px] animate-[shimmer_2s_linear_infinite]" />
                     </motion.div>
                   </div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Next Rank: Diamond I</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">KYC Status: {profile?.kyc_status || 'UNVERIFIED'}</p>
                 </div>
               </div>
             </div>
@@ -87,16 +108,18 @@ export const Gamification: React.FC = () => {
             <div className="mt-8 pt-8 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
                <div className="bg-[#111] border border-white/10 rounded-xl p-4 text-center">
                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Trades</p>
-                 <p className="text-xl font-bold text-white font-mono">142</p>
+                 <p className="text-xl font-bold text-white font-mono">{totalTrades}</p>
                </div>
                <div className="bg-[#111] border border-accent-secondary/20 rounded-xl p-4 text-center relative overflow-hidden">
                  <div className="absolute inset-0 bg-accent-secondary/5" />
                  <p className="text-[10px] font-bold text-accent-secondary uppercase tracking-widest mb-1 relative z-10">Win Rate</p>
-                 <p className="text-xl font-bold text-accent-secondary font-mono relative z-10 shadow-neon-emerald drop-shadow-md">68.5%</p>
+                 <p className="text-xl font-bold text-accent-secondary font-mono relative z-10 shadow-neon-emerald drop-shadow-md">{winRate.toFixed(1)}%</p>
                </div>
                <div className="bg-[#111] border border-white/10 rounded-xl p-4 text-center">
-                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Simulated PNL</p>
-                 <p className="text-xl font-bold text-white font-mono">+$24.1k</p>
+                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Realized PNL</p>
+                 <p className={`text-xl font-bold font-mono ${isPnLPositive ? 'text-accent-secondary' : 'text-orange-500'}`}>
+                   {isPnLPositive ? '+' : ''}${totalPnL.toFixed(2)}
+                 </p>
                </div>
                <div className="bg-[#111] border border-white/10 rounded-xl p-4 text-center">
                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Badges</p>

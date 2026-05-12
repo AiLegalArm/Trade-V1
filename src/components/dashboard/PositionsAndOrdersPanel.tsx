@@ -1,17 +1,34 @@
 import React, { useState } from 'react';
 import { useTradingStore } from '../../stores/tradingStore';
+import { useTradingContext } from '../../contexts/TradingContext';
+import { toast } from 'sonner';
 
 export const PositionsAndOrdersPanel = () => {
   const [activeTab, setActiveTab] = useState<'positions' | 'orders' | 'history'>('positions');
+  const [hideOtherSymbols, setHideOtherSymbols] = useState(false);
+  
+  const { currentPair } = useTradingContext();
   const positions = useTradingStore(s => s.positions);
   const orders = useTradingStore(s => s.orders);
-  const cancelOrder = useTradingStore(s => s.cancelOrder);
-  const closePosition = useTradingStore(s => s.closePosition);
+  const cancelOrderAction = useTradingStore(s => s.cancelOrder);
+  const closePositionAction = useTradingStore(s => s.closePosition);
   const prices = useTradingStore(s => s.prices);
 
-  const openPositions = positions.filter(p => p.status === 'open');
-  const pendingOrders = orders.filter(o => o.status === 'pending');
-  const orderHistory = orders.filter(o => o.status !== 'pending').slice(-20); // last 20
+  const filterBySymbol = (item: any) => !hideOtherSymbols || item.symbol === currentPair;
+
+  const openPositions = positions.filter(p => p.status === 'open' && filterBySymbol(p));
+  const pendingOrders = orders.filter(o => o.status === 'pending' && filterBySymbol(o));
+  const orderHistory = orders.filter(o => o.status !== 'pending' && filterBySymbol(o)).slice(-20); // last 20
+  
+  const handleClosePosition = (id: string, price: number) => {
+    closePositionAction(id, price);
+    toast.success('Position closed successfully');
+  };
+
+  const handleCancelOrder = (id: string) => {
+    cancelOrderAction(id);
+    toast.success('Order canceled successfully');
+  };
 
   return (
     <div className="glass-card p-6 relative overflow-hidden flex-1 flex flex-col h-full min-h-[400px]">
@@ -41,9 +58,25 @@ export const PositionsAndOrdersPanel = () => {
             {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-accent-primary shadow-neon-gold" />}
           </button>
         </div>
-        <button className="text-[10px] font-bold text-accent-primary hover:underline shadow-none bg-transparent mb-2">
-          View Detail
-        </button>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input 
+               type="checkbox" 
+               checked={hideOtherSymbols}
+               onChange={(e) => setHideOtherSymbols(e.target.checked)}
+               className="peer sr-only"
+            />
+            <div className="w-4 h-4 rounded border border-white/20 bg-surface-bg flex items-center justify-center peer-checked:bg-accent-primary peer-checked:border-accent-primary transition-colors">
+               <svg className="w-3 h-3 text-black opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+               </svg>
+            </div>
+            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500 group-hover:text-white transition-colors">Hide other symbols</span>
+          </label>
+          <button className="text-[10px] font-bold text-accent-primary hover:underline shadow-none bg-transparent mb-2">
+            View Detail
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto relative z-10 flex-1 custom-scrollbar">
@@ -107,7 +140,7 @@ export const PositionsAndOrdersPanel = () => {
                       </td>
                       <td className="py-4 text-right whitespace-nowrap">
                         <button 
-                          onClick={() => closePosition(pos.id, currentPrice)}
+                          onClick={() => handleClosePosition(pos.id, currentPrice)}
                           className="px-3 py-1.5 bg-white/5 hover:bg-accent-quaternary hover:text-white border border-white/10 rounded text-[10px] font-bold text-slate-400 transition-colors"
                         >
                           Close
@@ -168,7 +201,7 @@ export const PositionsAndOrdersPanel = () => {
                     </td>
                     <td className="py-4 text-right whitespace-nowrap">
                       <button 
-                        onClick={() => cancelOrder(order.id)}
+                        onClick={() => handleCancelOrder(order.id)}
                         className="px-3 py-1.5 bg-white/5 hover:bg-zinc-700 hover:text-white border border-white/10 rounded text-[10px] font-bold text-slate-400 transition-colors"
                       >
                         Cancel

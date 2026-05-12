@@ -1,10 +1,41 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTradingStore } from '../../stores/tradingStore';
+import { crmService } from '../../services/crmService';
+import { supabase } from '../../lib/supabase';
 
 export const OpenPositionsTable = () => {
   const positions = useTradingStore(s => s.positions.filter(p => p.status === 'open'));
   const closePosition = useTradingStore(s => s.closePosition);
   const prices = useTradingStore(s => s.prices);
+
+  const setPositions = useTradingStore(s => s.closePosition);
+  
+  const [user, setUser] = useState<any>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+
+  const handleClose = async (pos: any, currentPrice: number) => {
+    closePosition(pos.id, currentPrice);
+
+    if (user) {
+      try {
+        await crmService.activity({
+          external_trader_id: user.id,
+          external_trade_id: pos.id,
+          symbol: pos.symbol,
+          side: pos.type === 'Long' ? 'buy' : 'sell',
+          volume: pos.size,
+          open_price: pos.entryPrice,
+          close_price: currentPrice,
+          pnl: pos.unrealizedPnL,
+          closed_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
 
   if (positions.length === 0) {
      return <div className="p-4 text-center text-slate-500 text-sm">No open positions</div>;
@@ -67,7 +98,7 @@ export const OpenPositionsTable = () => {
               </td>
               <td className="py-4 text-right">
                 <button 
-                  onClick={() => closePosition(pos.id, currentPrice)}
+                  onClick={() => handleClose(pos, currentPrice)}
                   className="px-3 py-1.5 bg-white/5 hover:bg-accent-quaternary hover:text-white border border-white/10 rounded text-[10px] font-bold text-slate-400 transition-colors"
                 >
                   Close

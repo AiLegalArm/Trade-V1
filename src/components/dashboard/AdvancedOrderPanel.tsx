@@ -1,10 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, Percent, Minus, Plus, Bitcoin, ShieldAlert, Target, ShieldX, TrendingUp, TrendingDown } from 'lucide-react';
 import { useTradingContext } from '../../contexts/TradingContext';
 import { useTradingStore } from '../../stores/tradingStore';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { crmService } from '../../services/crmService';
+import { supabase } from '../../lib/supabase';
 
 export const AdvancedOrderPanel: React.FC = () => {
+  const { t } = useTranslation('common');
   const { 
     currentPair, currentPrice, priceChangePercent24h,
     leverage, setLeverage,
@@ -12,11 +17,17 @@ export const AdvancedOrderPanel: React.FC = () => {
     stopLoss, setStopLoss,
     marginType, setMarginType,
     orderSize: amount, setOrderSize: setAmount,
-    orderType, setOrderType
+    orderType, setOrderType,
+    setCurrentPair
   } = useTradingContext();
 
   const openPosition = useTradingStore(s => s.openPosition);
   const placeOrder = useTradingStore(s => s.placeOrder);
+
+  const [user, setUser] = useState<any>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
 
   const isPositive = (priceChangePercent24h || 0) >= 0;
 
@@ -25,9 +36,15 @@ export const AdvancedOrderPanel: React.FC = () => {
   const estLiqLong = currentPrice ? currentPrice * (1 - 1/leverage + 0.005) : 0;
   const estLiqShort = currentPrice ? currentPrice * (1 + 1/leverage - 0.005) : 0;
   
-  const handleExecute = (type: 'Long' | 'Short') => {
-    if (!parsedAmount || parsedAmount <= 0) return alert('Invalid amount');
-    if (!currentPrice) return alert('Price not loaded');
+  const handleExecute = async (type: 'Long' | 'Short') => {
+    if (!parsedAmount || parsedAmount <= 0) {
+      toast.error(t('invalidAmount', { defaultValue: 'Invalid amount' }));
+      return;
+    }
+    if (!currentPrice) {
+      toast.error(t('priceNotLoaded', { defaultValue: 'Price not loaded' }));
+      return;
+    }
 
     const tp = parseFloat(takeProfit) || null;
     const sl = parseFloat(stopLoss) || null;
@@ -49,10 +66,31 @@ export const AdvancedOrderPanel: React.FC = () => {
         stopLoss: sl,
         takeProfit: tp,
       });
+
+      if (user) {
+        try {
+          await crmService.activity({
+            external_trader_id: user.id,
+            external_trade_id: crypto.randomUUID(),
+            symbol: currentPair,
+            side: type === 'Long' ? 'buy' : 'sell',
+            volume: parsedAmount,
+            open_price: currentPrice,
+            opened_at: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      toast.success(t('marketOrderOpened', { defaultValue: `Market ${type} opened` }));
     } else {
       const priceEl = document.getElementById('conditional-price') as HTMLInputElement;
       const orderPrice = parseFloat(priceEl?.value || '');
-      if (!orderPrice) return alert(`Please enter a valid ${orderType} price`);
+      if (!orderPrice) {
+        toast.error(t('invalidPrice', { defaultValue: `Please enter a valid ${orderType} price` }));
+        return;
+      }
       
       placeOrder({
         symbol: currentPair,
@@ -65,6 +103,7 @@ export const AdvancedOrderPanel: React.FC = () => {
         stopLoss: sl,
         takeProfit: tp
       })
+      toast.success(t('orderPlaced', { defaultValue: `${orderType} order placed` }));
     }
     
     // reset amount
@@ -79,17 +118,17 @@ export const AdvancedOrderPanel: React.FC = () => {
       
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-white/5 relative z-10">
-        <h3 className="text-sm font-bold text-white tracking-wide uppercase">Launch Protocol</h3>
+        <h3 className="text-sm font-bold text-white tracking-wide uppercase">{t('launchProtocol')}</h3>
         <div className="flex items-center gap-1 p-1 bg-[#111] rounded-lg border border-white/5">
-           {['Market', 'Limit', 'Stop'].map(t => (
+           {['Market', 'Limit', 'Stop'].map(tStr => (
              <button 
-               key={t}
-               onClick={() => setOrderType(t as any)}
+               key={tStr}
+               onClick={() => setOrderType(tStr as any)}
                className={`px-3 py-1 rounded text-[10px] font-bold transition-colors ${
-                 orderType === t ? 'bg-accent-primary text-black shadow-neon-gold' : 'text-slate-500 hover:text-white'
+                 orderType === tStr ? 'bg-accent-primary text-black shadow-neon-gold' : 'text-slate-500 hover:text-white'
                }`}
              >
-               {t}
+               {t(tStr.toLowerCase())}
              </button>
            ))}
         </div>
@@ -98,13 +137,15 @@ export const AdvancedOrderPanel: React.FC = () => {
       <div className="p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar relative z-10">
         {/* Pair Display */}
         <div className="p-4 bg-[#111] border border-white/10 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                <Bitcoin size={20} className="text-orange-500" />
+          <div className="flex items-center gap-3 w-full">
+             <div className="w-10 h-10 rounded-xl bg-[#222] flex items-center justify-center border border-white/10 shrink-0 text-[10px] font-bold text-white uppercase tracking-widest break-all px-1 text-center leading-none">
+                {currentPair.substring(0, 3)}
              </div>
-             <div>
-                <h4 className="text-sm font-bold text-white leading-none">{currentPair.replace('USDT', ' / USDT')}</h4>
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Perpetual</span>
+             <div className="flex-1 w-full relative group">
+                <div className="w-full bg-transparent text-sm font-bold text-white outline-none p-0 m-0">
+                  {currentPair.endsWith('USDT') ? currentPair.replace('USDT', ' / USDT') : currentPair.endsWith('USD') ? currentPair.replace('USD', ' / USD') : currentPair}
+                </div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">{t('perpetual')}</div>
              </div>
           </div>
           <div className="text-right">
@@ -122,23 +163,23 @@ export const AdvancedOrderPanel: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
            <div>
               <div className="flex justify-between items-end mb-2">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Margin</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">{t('margin')}</label>
               </div>
               <div className="flex bg-[#111] border border-white/10 rounded-xl p-1">
-                 {['Cross', 'Isolated'].map(t => (
+                 {['Cross', 'Isolated'].map(tStr => (
                     <button 
-                       key={t}
-                       onClick={() => setMarginType(t as any)}
-                       className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${marginType === t ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'}`}
+                       key={tStr}
+                       onClick={() => setMarginType(tStr as any)}
+                       className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${marginType === tStr ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'}`}
                     >
-                       {t}
+                       {t(tStr.toLowerCase())}
                     </button>
                  ))}
               </div>
            </div>
            <div>
               <div className="flex justify-between items-end mb-2">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Leverage</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">{t('leverage')}</label>
                  <span className="text-[10px] font-bold text-accent-primary">{leverage}x</span>
               </div>
               <div className="flex items-center bg-[#111] border border-white/10 rounded-xl px-2">
@@ -161,7 +202,7 @@ export const AdvancedOrderPanel: React.FC = () => {
         {/* Amount */}
         <div>
            <div className="flex justify-between items-end mb-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Order Size</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">{t('orderSize')}</label>
            </div>
            <div className="relative group">
               <input 
@@ -170,7 +211,7 @@ export const AdvancedOrderPanel: React.FC = () => {
                  onChange={(e) => setAmount(e.target.value)}
                  className="w-full p-3 bg-[#111] border border-white/10 rounded-xl text-sm font-mono font-bold text-white focus:outline-none focus:border-accent-primary/50 transition-all pr-12" 
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 group-focus-within:text-accent-primary transition-colors">Amount</span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 group-focus-within:text-accent-primary transition-colors">{t('amount')}</span>
            </div>
         </div>
 
@@ -179,7 +220,7 @@ export const AdvancedOrderPanel: React.FC = () => {
           <div>
             <div className="flex justify-between items-end mb-2 mt-4">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none flex items-center gap-1">
-                <Target size={10}/> {orderType} Price
+                <Target size={10}/> {t(orderType.toLowerCase())} {t('price')}
               </label>
             </div>
             <div className="relative group">
@@ -189,7 +230,7 @@ export const AdvancedOrderPanel: React.FC = () => {
                  placeholder={currentPrice?.toLocaleString() || '0.00'}
                  className="w-full p-3 bg-[#111] border border-white/10 rounded-xl text-sm font-mono font-bold text-white focus:outline-none focus:border-accent-primary/50 transition-all pr-12" 
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 group-focus-within:text-accent-primary transition-colors">Price</span>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 group-focus-within:text-accent-primary transition-colors">{t('price')}</span>
             </div>
           </div>
         )}
@@ -198,12 +239,12 @@ export const AdvancedOrderPanel: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
            <div>
               <div className="flex justify-between items-end mb-2">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1"><Target size={10} className="text-accent-secondary" /> Take Profit</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1"><Target size={10} className="text-accent-secondary" /> {t('takeProfit')}</label>
               </div>
               <div className="relative">
                  <input 
                     type="text" 
-                    placeholder="None"
+                    placeholder={t('none')}
                     value={takeProfit}
                     onChange={(e) => setTakeProfit(e.target.value)}
                     className="w-full p-2.5 bg-[#111] border border-white/10 rounded-xl text-xs font-mono font-bold text-white focus:outline-none focus:border-accent-secondary/50 transition-all"
@@ -212,12 +253,12 @@ export const AdvancedOrderPanel: React.FC = () => {
            </div>
            <div>
               <div className="flex justify-between items-end mb-2">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1"><ShieldAlert size={10} className="text-accent-quaternary" /> Stop Loss</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1"><ShieldAlert size={10} className="text-accent-quaternary" /> {t('stopLoss')}</label>
               </div>
               <div className="relative">
                  <input 
                     type="text" 
-                    placeholder="None"
+                    placeholder={t('none')}
                     value={stopLoss}
                     onChange={(e) => setStopLoss(e.target.value)}
                     className="w-full p-2.5 bg-[#111] border border-white/10 rounded-xl text-xs font-mono font-bold text-white focus:outline-none focus:border-accent-quaternary/50 transition-all"
@@ -229,25 +270,25 @@ export const AdvancedOrderPanel: React.FC = () => {
         {/* Risk & Liquidation Info */}
         <div className="p-4 bg-white/5 border border-white/5 rounded-xl space-y-3">
            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-              <span className="text-slate-500">Margin Required</span>
+              <span className="text-slate-500">{t('marginRequired')}</span>
               <span className="text-white font-mono">{marginRequired.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT</span>
            </div>
            
            <div className="flex flex-col gap-1 border-t border-white/5 pt-2 mt-2">
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-                <span className="text-slate-500">Est. Liq (Long)</span>
+                <span className="text-slate-500">{t('estLiq')} (Long)</span>
                 <span className="text-white font-mono">{estLiqLong.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
               </div>
               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-                <span className="text-slate-500">Est. Liq (Short)</span>
+                <span className="text-slate-500">{t('estLiq')} (Short)</span>
                 <span className="text-white font-mono">{estLiqShort.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
               </div>
            </div>
 
            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider border-t border-white/5 pt-2 mt-2">
-              <span className="text-slate-500">Risk Meter</span>
+              <span className="text-slate-500">{t('riskMeter')}</span>
               <span className={leverage > 50 ? "text-accent-quaternary" : leverage > 20 ? "text-orange-500" : "text-accent-secondary"}>
-                 {leverage > 50 ? "High" : leverage > 20 ? "Medium" : "Low"}
+                 {leverage > 50 ? t('high') : leverage > 20 ? t('medium') : t('low')}
               </span>
            </div>
            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
@@ -258,11 +299,13 @@ export const AdvancedOrderPanel: React.FC = () => {
 
       <div className="p-6 border-t border-white/5 space-y-4 bg-surface-bg/50 backdrop-blur-md relative z-10">
          <div className="flex gap-4">
-            <button onClick={() => handleExecute('Long')} className="flex-1 py-4 bg-gradient-to-r from-accent-secondary/90 to-accent-secondary rounded-xl text-xs font-bold text-black shadow-neon-emerald hover:brightness-110 active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-1">
-               <span className="uppercase tracking-widest text-[10px] opacity-70">Buy / Long</span>
+            <button onClick={() => handleExecute('Long')} className="flex-1 py-4 bg-gradient-to-r from-[#00E676] to-[#00C853] rounded-xl font-bold text-black shadow-[0_0_20px_rgba(0,230,118,0.3)] hover:shadow-[0_0_30px_rgba(0,230,118,0.5)] hover:brightness-110 active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-1">
+               <span className="uppercase tracking-widest text-[14px]">Buy / Long</span>
+               <span className="text-[10px] opacity-70">Open Long Position</span>
             </button>
-            <button onClick={() => handleExecute('Short')} className="flex-1 py-4 bg-gradient-to-r from-accent-quaternary/90 to-accent-quaternary rounded-xl text-xs font-bold text-white shadow-neon-rose hover:brightness-110 active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-1">
-               <span className="uppercase tracking-widest text-[10px] opacity-70">Sell / Short</span>
+            <button onClick={() => handleExecute('Short')} className="flex-1 py-4 bg-gradient-to-r from-[#FF3D00] to-[#E62E00] rounded-xl font-bold text-white shadow-[0_0_20px_rgba(255,61,0,0.3)] hover:shadow-[0_0_30px_rgba(255,61,0,0.5)] hover:brightness-110 active:scale-95 transition-all text-center flex flex-col items-center justify-center gap-1">
+               <span className="uppercase tracking-widest text-[14px]">Sell / Short</span>
+               <span className="text-[10px] opacity-70">Open Short Position</span>
             </button>
          </div>
       </div>
